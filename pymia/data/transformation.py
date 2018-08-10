@@ -344,6 +344,45 @@ class Mask(Transform):
         return sample
 
 
+class MixUp(Transform):
+
+    def __init__(self, dataset, ids, alpha, entries=('images', 'labels')) -> None:
+        """
+        Mixup, according to https://arxiv.org/abs/1710.09412.
+        Creates new artificial samples by a linear combination of two samples.
+
+        :param dataset: dataset from which to load the samples.
+        :param ids: list of sample indices to randomly choose from.
+        :param alpha: alpha value for the beta-distribution.
+        :param entries: entries to apply mixup to.
+        """
+
+        super().__init__()
+        self.dataset = dataset
+        self.ids = ids
+        self.alpha = alpha
+        self.entries = entries
+        self.__skip = False
+
+    def __call__(self, sample: dict) -> dict:
+
+        # handle recursion
+        if self.__skip:
+            return sample
+        self.__skip = True
+
+        other = self.dataset[np.random.choice(self.ids)]
+        lam = np.random.beta(self.alpha, self.alpha)
+
+        for entry in self.entries:
+            if entry not in sample:
+                continue
+            sample[entry] = sample[entry] * lam + (1.0 - lam) * other[entry]
+
+        self.__skip = False
+        return sample
+
+
 def check_and_return(obj, type_):
     if not isinstance(obj, type_):
         raise ValueError("entry must be '{}'".format(type_.__name__))
